@@ -1,4 +1,5 @@
 """Report API: slow work leaves the request and runs as a background job (FlyRank Backend track, A7)."""
+import logging
 import uuid
 
 import inngest
@@ -11,6 +12,7 @@ from pydantic import BaseModel, Field
 from jobs import functions, inngest_client
 from store import REPORTS
 
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")  # show the heartbeat line
 app = FastAPI(title="Report API", version="1.0")
 
 

@@ -46,4 +46,13 @@ async def make_report(ctx: inngest.Context) -> dict:
     return await ctx.step.run("build-report", build)
 
 
-functions = [say_hello, make_report]
+@inngest_client.create_function(fn_id="heartbeat", trigger=inngest.TriggerCron(cron="* * * * *"))
+async def heartbeat(ctx: inngest.Context) -> dict:
+    # no endpoint and no event: the clock is the only trigger (every minute, for testing; a real one runs daily)
+    counts = {status: sum(r["status"] == status for r in REPORTS.values()) for status in ("pending", "done", "failed")}
+    line = f"heartbeat: {counts['pending']} pending, {counts['done']} done, {counts['failed']} failed"
+    ctx.logger.info(line)
+    return {"summary": line, **counts}
+
+
+functions = [say_hello, make_report, heartbeat]

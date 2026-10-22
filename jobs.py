@@ -15,7 +15,19 @@ async def say_hello(ctx: inngest.Context) -> str:
     return "Hello from the background!"
 
 
-@inngest_client.create_function(fn_id="make-report", trigger=inngest.TriggerEvent(event="report/requested"))
+async def mark_failed(ctx: inngest.Context) -> None:
+    # runs once, after the last retry has failed: record it so clients (and the heartbeat) can see it
+    original = ctx.event.data["event"]["data"]
+    error = ctx.event.data.get("error", {}).get("message", "unknown error")
+    REPORTS[original["id"]] = {"id": original["id"], "topic": original["topic"], "status": "failed", "error": error}
+
+
+@inngest_client.create_function(
+    fn_id="make-report",
+    trigger=inngest.TriggerEvent(event="report/requested"),
+    retries=2,              # 1 attempt + 2 retries = 3 attempts, then the run is Failed
+    on_failure=mark_failed,
+)
 async def make_report(ctx: inngest.Context) -> dict:
     report_id, topic = ctx.event.data["id"], ctx.event.data["topic"]
 
@@ -23,6 +35,8 @@ async def make_report(ctx: inngest.Context) -> dict:
     await ctx.step.sleep("do-the-slow-work", datetime.timedelta(seconds=8))
 
     async def build() -> dict:
+        if topic == "fail":
+            raise RuntimeError("The report oven is broken!")  # a wrong *moment*: worth retrying
         result = f"Report on '{topic}': 3 key facts, 2 charts, 1 conclusion."
         finished = datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")
         REPORTS[report_id] = {"id": report_id, "topic": topic, "status": "done", "result": result,

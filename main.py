@@ -3,9 +3,10 @@ import uuid
 
 import inngest
 import inngest.fast_api
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from jobs import functions, inngest_client
 from store import REPORTS
@@ -14,7 +15,15 @@ app = FastAPI(title="Report API", version="1.0")
 
 
 class ReportRequest(BaseModel):
-    topic: str
+    topic: str = Field(min_length=1, max_length=100)
+
+
+@app.exception_handler(RequestValidationError)
+async def bad_input(_request: Request, exc: RequestValidationError):
+    # a wrong *input* is rejected at the door with 400, and no event is sent, so no job and no retries
+    first = exc.errors()[0]
+    field = ".".join(str(x) for x in first["loc"] if x != "body") or "body"
+    return JSONResponse(status_code=400, content={"error": f"{field}: {first['msg']}"})
 
 
 @app.get("/health")

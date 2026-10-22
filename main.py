@@ -42,6 +42,12 @@ async def create_report(body: ReportRequest):
     return {"id": report_id, "status": "pending"}
 
 
+@app.get("/reports")
+def list_reports():
+    # extra: the control panel, with every report and its status
+    return list(REPORTS.values())
+
+
 @app.get("/reports/{report_id}")
 def get_report(report_id: str):
     if report_id not in REPORTS:
